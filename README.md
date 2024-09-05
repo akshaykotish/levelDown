@@ -1,5 +1,5 @@
 
-# Dynamic Box and Line Manipulation Project
+# LevelDown Project
 
 This project allows users to dynamically create, manipulate, and connect draggable boxes on a web page, with zoom and pan functionality. The connections between the boxes are represented as curved lines, which adjust dynamically when the boxes are moved. This project was created by **Akshay Kotish**.
 
@@ -52,7 +52,7 @@ This project allows users to dynamically create, manipulate, and connect draggab
 
 1. **Download or Clone the Project**:
    ```bash
-   git clone https://github.com/akshay-kotish/box-line-manipulation.git
+   git clone https://github.com/akshaykotish/levelDown
    ```
 
 2. **Open the `index.html` file** in a browser to view the project.
