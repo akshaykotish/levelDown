@@ -4,6 +4,7 @@ let panY = 0;
 const zoomSensitivity = 0.1;
 let isPanning = false;
 let startX, startY;
+let boxHierarchy = new Map(); // To track each box and its sub-boxes
 
 // Create a container to hold both boxes and lines
 const container = document.createElement('div');
@@ -98,8 +99,8 @@ function makeDraggable(box, connections) {
 
         const boxRect = box.getBoundingClientRect();
         // Offset is calculated relative to where the user clicked on the box
-        offsetX = startX - boxRect.left;
-        offsetY = startY - boxRect.top;
+        offsetX = (startX - boxRect.left) / scale;
+        offsetY = (startY - boxRect.top) / scale;
         box.style.cursor = 'grabbing';
     });
 
@@ -108,9 +109,12 @@ function makeDraggable(box, connections) {
             const mouseX = e.clientX;
             const mouseY = e.clientY;
 
-            // Calculate the new position of the box based on the initial click offset
-            box.style.left = `${mouseX - offsetX}px`;
-            box.style.top = `${mouseY - offsetY}px`;
+            // Calculate the new position of the box based on the initial click offset, adjusted for scale and pan
+            const newLeft = (mouseX - offsetX) / scale - panX / scale;
+            const newTop = (mouseY - offsetY) / scale - panY / scale;
+
+            box.style.left = `${newLeft}px`;
+            box.style.top = `${newTop}px`;
 
             // Update all lines connected to this box
             connections.forEach(connection => {
@@ -124,7 +128,6 @@ function makeDraggable(box, connections) {
         box.style.cursor = 'grab';
     });
 }
-
 
 // Function to dynamically create a box
 function createBox(color, top, left) {
@@ -186,16 +189,45 @@ connections.forEach(connection => {
     uniqueBoxes.add(connection.box2);
 });
 
-uniqueBoxes.forEach(box => {
-    const relatedConnections = connections.filter(c => c.box1 === box || c.box2 === box);
-    makeDraggable(box, relatedConnections);
-});
+// Recursive hide/show functions for sub-boxes
+function hideSubBoxes(box) {
+    const subBoxes = boxHierarchy.get(box);
+    if (subBoxes) {
+        subBoxes.forEach(subBox => {
+            subBox.element.style.display = 'none';
+            subBox.connection1.path.style.display = 'none';
+            subBox.connection2.path.style.display = 'none';
+            hideSubBoxes(subBox.element); // Recursive call to hide sub-boxes
+        });
+    }
+}
 
-// Enable canvas panning
-enablePanning();
-// Function to handle box clicks and add two new boxes linked to the clicked box
+function showSubBoxes(box) {
+    const subBoxes = boxHierarchy.get(box);
+    if (subBoxes) {
+        subBoxes.forEach(subBox => {
+            subBox.element.style.display = 'block';
+            subBox.connection1.path.style.display = 'block';
+            subBox.connection2.path.style.display = 'block';
+            showSubBoxes(subBox.element); // Recursive call to show sub-boxes
+        });
+    }
+}
+
+// Function to add new boxes on double-click
 function addNewBoxesOnClick(box) {
     box.addEventListener('dblclick', function () {
+        // If sub-boxes exist, toggle their visibility (hide/show)
+        if (boxHierarchy.has(box)) {
+            const subBoxes = boxHierarchy.get(box);
+            if (subBoxes && subBoxes[0].element.style.display === 'none') {
+                showSubBoxes(box);
+            } else {
+                hideSubBoxes(box);
+            }
+            return;
+        }
+
         const boxRect = box.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
 
@@ -229,6 +261,12 @@ function addNewBoxesOnClick(box) {
         // Add click event to the new boxes so they can also generate more boxes
         addNewBoxesOnClick(newBox1);
         addNewBoxesOnClick(newBox2);
+
+        // Store the sub-boxes in the hierarchy
+        boxHierarchy.set(box, [
+            { element: newBox1, connection1, connection2 },
+            { element: newBox2, connection1, connection2 }
+        ]);
     });
 }
 
@@ -238,3 +276,6 @@ uniqueBoxes.forEach(box => {
     const relatedConnections = connections.filter(c => c.box1 === box || c.box2 === box);
     makeDraggable(box, relatedConnections);  // Ensure existing boxes are draggable as well
 });
+
+// Enable canvas panning
+enablePanning();
