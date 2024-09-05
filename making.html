@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        .box {
+            width: 100px;
+            height: 100px;
+            position: fixed;
+            cursor: grab;
+        }
+
+        svg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Ensure the SVG is behind the boxes */
+        }
+
+        #container {
+            transform-origin: 0 0;
+            transition: transform 0.2s ease;
+        }
+
+        /* Buttons for zoom control */
+        .zoom-controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+        }
+
+        .zoom-controls button {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <svg id="lineContainer"></svg>
+    </div>
+
+    <!-- Zoom controls -->
+    <div class="zoom-controls">
+        <button id="zoomIn">Zoom In</button>
+        <button id="zoomOut">Zoom Out</button>
+    </div>
+
+    <script>
+        // Function to create and update the curved link between two boxes
+        function createOrUpdateCurvedLink(box1, box2, path) {
+            const box1Rect = box1.getBoundingClientRect();
+            const box2Rect = box2.getBoundingClientRect();
+
+            // Calculate center points
+            const box1CenterX = box1Rect.left + box1Rect.width / 2;
+            const box1CenterY = box1Rect.top + box1Rect.height / 2;
+            const box2CenterX = box2Rect.left + box2Rect.width / 2;
+            const box2CenterY = box2Rect.top + box2Rect.height / 2;
+
+            // Calculate control point for the curve
+            const controlPointX = (box1CenterX + box2CenterX) / 2;
+            const controlPointY = Math.min(box1CenterY, box2CenterY) + 300;
+
+            // Set new path data
+            const pathData = `M ${box1CenterX} ${box1CenterY} Q ${controlPointX} ${controlPointY}, ${box2CenterX} ${box2CenterY}`;
+            path.setAttribute("d", pathData);
+        }
+
+        // Function to make an element draggable and update all connected lines
+        function makeDraggable(box, connections) {
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            box.addEventListener('mousedown', function (e) {
+                isDragging = true;
+                offsetX = e.clientX - box.getBoundingClientRect().left;
+                offsetY = e.clientY - box.getBoundingClientRect().top;
+                box.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mousemove', function (e) {
+                if (isDragging) {
+                    const mouseX = e.clientX;
+                    const mouseY = e.clientY;
+                    box.style.left = `${mouseX - offsetX}px`;
+                    box.style.top = `${mouseY - offsetY}px`;
+
+                    // Update all lines connected to this box
+                    connections.forEach(connection => {
+                        createOrUpdateCurvedLink(connection.box1, connection.box2, connection.path);
+                    });
+                }
+            });
+
+            document.addEventListener('mouseup', function () {
+                isDragging = false;
+                box.style.cursor = 'grab';
+            });
+        }
+
+        // Function to dynamically create a box
+        function createBox(color, top, left) {
+            const box = document.createElement('div');
+            box.classList.add('box');
+            box.style.backgroundColor = color;
+            box.style.top = `${top}%`;
+            box.style.left = `${left}%`;
+            box.style.position = 'fixed';
+            box.style.width = '100px';
+            box.style.height = '100px';
+            box.style.cursor = 'grab';
+
+            document.body.appendChild(box);
+            return box;  // Return the created box for later use
+        }
+
+        // Function to create a line between two boxes
+        function createConnection(box1, box2) {
+            const svg = document.getElementById('lineContainer');
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("stroke", "black");
+            path.setAttribute("stroke-width", "2");
+            path.setAttribute("fill", "none");
+            svg.appendChild(path);
+
+            // Initial line between the two boxes
+            createOrUpdateCurvedLink(box1, box2, path);
+
+            // Return an object that contains the boxes and the path
+            return { box1, box2, path };
+        }
+
+        // Main logic
+        const svg = document.getElementById('lineContainer');
+        const connections = []; // Store all connections
+
+        // Create some initial boxes
+        const box1 = createBox('red', 20, 30);
+        const box2 = createBox('green', 60, 50);
+        const box3 = createBox('blue', 40, 70); // Another box for testing
+
+        // Create connections between boxes
+        connections.push(createConnection(box1, box2));
+        connections.push(createConnection(box2, box3));
+        connections.push(createConnection(box1, box3));
+
+        // Collect unique boxes from connections and make each one draggable
+        const uniqueBoxes = new Set();
+        connections.forEach(connection => {
+            uniqueBoxes.add(connection.box1);
+            uniqueBoxes.add(connection.box2);
+        });
+
+        uniqueBoxes.forEach(box => {
+            const relatedConnections = connections.filter(c => c.box1 === box || c.box2 === box);
+            makeDraggable(box, relatedConnections);
+        });
+
+        // Zoom functionality
+        let zoomLevel = 1;
+        const zoomStep = 0.1;
+        const container = document.getElementById('container');
+
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            zoomLevel += zoomStep;
+            container.style.transform = `scale(${zoomLevel})`;
+        });
+
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            zoomLevel = Math.max(0.1, zoomLevel - zoomStep); // Prevent zooming out too far
+            container.style.transform = `scale(${zoomLevel})`;
+        });
+
+    </script>
+
+</body>
+</html>
